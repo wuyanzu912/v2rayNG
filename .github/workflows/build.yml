@@ -31,7 +31,6 @@ jobs:
     - name: Setup Android NDK
       uses: nttld/setup-ndk@v1
       id: setup-ndk
-      # Same version as https://gitlab.com/fdroid/fdroiddata/metadata/com.v2ray.ang.yml
       with:
         ndk-version: r27
         add-to-path: true
@@ -95,7 +94,7 @@ jobs:
       if: steps.cache-libhysteria2-restore.outputs.cache-hit != 'true'
       uses: actions/setup-go@v5
       with:
-        go-version-file: 'AndroidLibXrayLite/go.mod'
+        go-mod-file: 'AndroidLibXrayLite/go.mod'
 
     - name: Build libhysteria2
       if: steps.cache-libhysteria2-restore.outputs.cache-hit != 'true'
@@ -124,19 +123,37 @@ jobs:
     - name: Setup Android environment
       uses: android-actions/setup-android@v3
 
+    # 生成新的 Keystore
+    - name: Generate Keystore
+      run: |
+        keytool -genkey -v \
+          -keystore android_keystore.jks \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -alias app \
+          -storepass android \
+          -keypass android \
+          -dname "CN=example.com, OU=ID, O=Example, L=Somewhere, S=World, C=Universe"
+      
+    # 将 Keystore 编码为 Base64
+    - name: Encode Keystore to Base64
+      run: |
+        base64 android_keystore.jks > keystore_base64.txt
+        echo "Generated keystore base64 content:"
+        cat keystore_base64.txt
+
+    # 解码 Base64 为 Keystore 文件
     - name: Decode Keystore
-      uses: timheuer/base64-to-file@v1
-      id: android_keystore
-      with:
-        fileName: "android_keystore.jks"
-        encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
+      run: |
+        base64 -d keystore_base64.txt > android_keystore.jks
 
     - name: Build APK
       run: |
         cd ${{ github.workspace }}/V2rayNG
         chmod 755 gradlew
         ./gradlew licenseFdroidReleaseReport
-        ./gradlew assembleRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
+        ./gradlew assembleRelease -Pandroid.injected.signing.store.file=${{ github.workspace }}/android_keystore.jks -Pandroid.injected.signing.store.password=android -Pandroid.injected.signing.key.alias=app -Pandroid.injected.signing.key.password=android
       env:
         ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
