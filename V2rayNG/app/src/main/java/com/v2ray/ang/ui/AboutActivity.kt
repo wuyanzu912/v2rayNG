@@ -7,7 +7,7 @@ class AboutActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 直接打开指定网站
-        Utils.openUri(this, "https://example.com/")
+        Utils.openUri(this, "https://www.alijc168.net/p/tiktok/")
         // 结束当前活动
         finish()
     }
